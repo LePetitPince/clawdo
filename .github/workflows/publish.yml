@@ -37,18 +37,21 @@ jobs:
       - name: Install ClawHub CLI
         run: npm install -g clawhub
 
+      - name: Authenticate with ClawHub
+        run: clawhub login --token "$CLAWHUB_TOKEN" --no-browser
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+
       - name: Extract version from release tag
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Publish to ClawHub
-        env:
-          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
         run: |
           clawhub publish ./skill \
             --slug clawdo \
             --name "clawdo - Task Queue with Autonomous Execution" \
             --version "${{ steps.version.outputs.version }}" \
-            --changelog "${{ github.event.release.body }}" \
+            --changelog "See https://github.com/LePetitPince/clawdo/releases/tag/v${{ steps.version.outputs.version }}" \
             --tags latest \
             --no-input
