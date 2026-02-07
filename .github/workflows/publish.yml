@@ -37,6 +37,9 @@ jobs:
       - name: Install ClawHub CLI
         run: npm install -g clawhub
 
+      - name: Authenticate with ClawHub
+        run: clawhub login --token "${{ secrets.CLAWHUB_TOKEN }}" --no-browser
+
       - name: Extract version from release tag
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
@@ -50,5 +53,3 @@ jobs:
             --changelog "${{ github.event.release.body }}" \
             --tags latest \
             --no-input
-        env:
-          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
