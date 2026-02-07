@@ -1,6 +1,6 @@
 ---
 name: clawdo
-version: 1.1.1
+version: 1.1.2
 author: LePetitPince <lepetitpince@proton.me>
 homepage: https://github.com/LePetitPince/clawdo
 description: Agent-first task queue with autonomous execution levels. Agents propose tasks, humans approve, agents execute. Security-first design with prompt injection defense, immutable autonomy levels, and multi-agent database isolation.
