@@ -44,6 +44,207 @@ Or run directly: `node dist/index.js <command>`
 
 ---
 
+## Development Workflow
+
+### Branch Strategy (GitHub Flow)
+
+**The `master` branch is always deployable.** All development happens in feature branches.
+
+```
+master (protected, stable)
+  ↑
+  PR ← feat/feature-name
+  PR ← fix/bug-name
+  PR ← docs/update
+```
+
+### Branch Naming
+
+Use descriptive prefixes:
+
+```bash
+feat/add-recurring-tasks    # New features
+fix/auth-timeout            # Bug fixes
+docs/update-readme          # Documentation
+test/add-sanitizer-tests    # Test improvements
+chore/upgrade-deps          # Dependencies, tooling
+```
+
+### Step-by-Step Workflow
+
+**1. Create a feature branch:**
+```bash
+git checkout master
+git pull
+git checkout -b feat/my-feature
+```
+
+**2. Make changes:**
+```bash
+# Code, test, iterate
+npm run build
+npm test
+
+# Commit with conventional commit format
+git add -A
+git commit -m "feat: add recurring task support"
+```
+
+**3. Push and create PR:**
+```bash
+git push origin feat/my-feature
+
+# Create PR via gh CLI
+gh pr create \
+  --title "feat: add recurring task support" \
+  --body "Implements recurring tasks with cron syntax.
+
+Closes #123"
+```
+
+**4. Wait for CI:**
+- CI tests on Node 18, 20, 22
+- All tests must pass
+- Smoke test must pass
+
+**5. Merge:**
+```bash
+# Squash merge (keeps master clean)
+gh pr merge --squash
+
+# Or merge normally
+gh pr merge --merge
+```
+
+**6. Clean up:**
+```bash
+git checkout master
+git pull
+git branch -d feat/my-feature
+```
+
+### Versioning & Releases
+
+**Use semantic versioning:**
+- **PATCH** (1.0.1): Bug fixes, docs
+- **MINOR** (1.1.0): New features (backward compatible)
+- **MAJOR** (2.0.0): Breaking changes
+
+**Release process:**
+
+```bash
+# 1. Ensure master is up to date
+git checkout master
+git pull
+
+# 2. Bump version (auto-commits and tags)
+npm version patch  # or minor/major
+# This updates package.json and creates a git tag
+
+# 3. Push commit and tags
+git push && git push --tags
+
+# 4. Create GitHub release (triggers publish workflow)
+gh release create v1.0.2 \
+  --title "v1.0.2 - Bug Fixes" \
+  --notes "**Fixed:**
+- Auth timeout issue
+- Memory leak in audit logger
+
+**Install:**
+\`\`\`bash
+npm install -g clawdo
+\`\`\`
+" \
+  --latest
+```
+
+**What happens next:**
+1. GitHub release triggers publish workflow
+2. CI tests run
+3. Package published to npm (with provenance)
+4. Package published to ClawHub
+5. Users can `npm install -g clawdo@1.0.2`
+
+### Commit Message Format
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type: short description
+
+Longer explanation if needed.
+
+Closes #123
+```
+
+**Types:**
+- `feat:` New feature
+- `fix:` Bug fix
+- `docs:` Documentation only
+- `test:` Test changes
+- `chore:` Tooling, deps, build
+- `refactor:` Code restructure (no behavior change)
+- `perf:` Performance improvement
+
+**Examples:**
+```bash
+git commit -m "feat: add --json flag to stats command"
+git commit -m "fix: prevent race condition in audit log"
+git commit -m "docs: clarify autonomy level examples"
+```
+
+### CI/CD Workflows
+
+**CI Workflow** (runs on every push to master + PRs):
+- Tests on Node 18, 20, 22 (matrix)
+- Builds TypeScript
+- Runs all 195 tests
+- Smoke tests package installation
+- **Must pass** before merging PR
+
+**Publish Workflow** (runs on GitHub Release):
+- Tests on Node 20
+- Builds and tests
+- Publishes to npm with provenance
+- Publishes to ClawHub
+- **Triggered manually** by creating a release
+
+### Working with Forks (External Contributors)
+
+**First time:**
+```bash
+# Fork repo on GitHub
+# Clone your fork
+git clone https://github.com/YOUR_USERNAME/clawdo.git
+cd clawdo
+
+# Add upstream remote
+git remote add upstream https://github.com/LePetitPince/clawdo.git
+```
+
+**Keeping your fork up to date:**
+```bash
+git checkout master
+git fetch upstream
+git merge upstream/master
+git push origin master
+```
+
+**Creating PRs:**
+```bash
+# Work in a branch
+git checkout -b feat/my-feature
+
+# Push to YOUR fork
+git push origin feat/my-feature
+
+# Create PR to upstream (LePetitPince/clawdo)
+gh pr create --repo LePetitPince/clawdo
+```
+
+---
+
 ## Project Structure
 
 ```

@@ -291,15 +291,48 @@ Audit log is append-only (set with `chattr +a` on Linux).
 
 ---
 
-## Development
+## Contributing
+
+We welcome contributions! clawdo uses GitHub Flow with feature branches.
+
+### Quick Start
 
 ```bash
-git clone https://github.com/LePetitPince/clawdo.git
+# Fork and clone
+git clone https://github.com/YOUR_USERNAME/clawdo.git
 cd clawdo
 npm install
 npm run build
 npm test
 ```
+
+### Development Workflow
+
+1. **Create a branch:** `git checkout -b feat/my-feature`
+2. **Make changes:** code, test, commit
+3. **Push:** `git push origin feat/my-feature`
+4. **Create PR:** `gh pr create`
+5. **CI validates:** tests must pass
+6. **Merge:** maintainer reviews and merges
+
+### Versioning & Releases
+
+We use [Semantic Versioning](https://semver.org/):
+- **PATCH** (1.0.1): Bug fixes
+- **MINOR** (1.1.0): New features
+- **MAJOR** (2.0.0): Breaking changes
+
+Releases are created manually using `npm version` + GitHub Releases, which triggers automatic publishing to npm and ClawHub.
+
+### Full Documentation
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Branch naming conventions
+- Commit message format
+- Testing guidelines
+- Code style rules
+- Security considerations
+- CI/CD workflow details
 
 ---
 
