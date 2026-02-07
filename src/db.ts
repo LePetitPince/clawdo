@@ -573,8 +573,10 @@ export class TodoDatabase {
       throw new ClawdoError('TASK_NOT_FOUND', `Task not found: ${id}`, { id });
     }
 
-    // Autonomy level changes are not allowed via edit - security gate
-    // This prevents agents from escalating their own autonomy
+    // DESIGN DECISION: Autonomy is a PERMISSION BOUNDARY — immutable after creation.
+    // Urgency is SCHEDULING METADATA — freely editable by anyone, including agents.
+    // An agent bumping urgency to "now" changes priority, not permissions.
+    // The autonomy level is what actually gates execution time and capabilities.
     if (updates.autonomy !== undefined) {
       throw new ClawdoError('PERMISSION_DENIED', 'Autonomy level cannot be changed after task creation. This prevents agents from escalating their own permissions.', { 
         taskId: id, 
@@ -717,7 +719,12 @@ export class TodoDatabase {
     this.audit('complete', actor, id, { sessionId, toolsUsed });
   }
 
-  // Fail task attempt
+  // Fail task attempt.
+  // DESIGN: This is the ONE place autonomy can change after creation — and it's
+  // a demotion, not an escalation. After 3 agent failures, we force the task to
+  // 'collab' (human-required). This bypasses the updateTask() immutability guard
+  // intentionally: the guard prevents agents from GAINING permissions, but losing
+  // them after repeated failure is a safety mechanism, not a privilege escalation.
   failTask(id: string, reason: string): void {
     const task = this.getTask(id);
     if (!task) {
@@ -729,7 +736,7 @@ export class TodoDatabase {
 
     // Reset to todo for retry, unless max attempts reached
     if (newAttempts >= 3) {
-      // Upgrade to collab after 3 failures
+      // Escalate to collab — this task needs human eyes
       this.db.prepare('UPDATE tasks SET status = ?, autonomy = ?, attempts = ?, last_attempt_at = ?, notes = ? WHERE id = ?')
         .run('todo', 'collab', newAttempts, now, `[Auto-failed 3 times] ${task.notes || ''}`.substring(0, LIMITS.notes), id);
     } else {
