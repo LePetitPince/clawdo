@@ -20,10 +20,14 @@ import {
 
 const program = new Command();
 
-// Helper function for readline confirmations
+// Helper function for readline confirmations.
+// DESIGN: Non-TTY (piped/scripted) mode auto-confirms. This is standard CLI
+// behavior and intentional — agents running bulk operations in scripts are
+// trusted callers. The safety boundary is the autonomy level, not the
+// confirmation prompt. If you need to prevent agent bulk ops, don't give
+// agents access to bulk commands; the prompt is a UX convenience, not security.
 function confirmAction(message: string, callback: (confirmed: boolean) => void): void {
   if (!process.stdin.isTTY) {
-    // Non-interactive mode - auto-confirm
     callback(true);
     return;
   }
@@ -134,7 +138,7 @@ function formatTimeAgo(isoTimestamp: string): string {
 program
   .name('clawdo')
   .description('Personal task queue with autonomous execution — claw + to-do')
-  .version('1.0.0')
+  .version('1.0.1')
   .option('--db <path>', 'Database path (default: ~/.config/clawdo/clawdo.db, or $CLAWDO_DB_PATH)')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
@@ -217,7 +221,9 @@ program
   .option('-c, --context <context>', 'Context tag (@ prefix optional)')
   .option('--due <date>', 'Due date (YYYY-MM-DD or tomorrow)')
   .option('--blocked-by <id>', 'Blocked by task ID')
+  .option('--json', 'Output as JSON')
   .action((text, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
 
@@ -241,11 +247,11 @@ program
         blockedBy: options.blockedBy,
       });
 
-      console.log(`Added: ${id}`);
+      console.log(renderSuccess(`Added: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -351,16 +357,18 @@ program
   .command('start')
   .description('Mark task as in progress')
   .argument('<id>', 'Task ID or prefix')
-  .action((idOrPrefix) => {
+  .option('--json', 'Output as JSON')
+  .action((idOrPrefix, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
       db.startTask(id, 'human');
-      console.log(`Started: ${id}`);
+      console.log(renderSuccess(`Started: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -372,14 +380,16 @@ program
   .argument('[ids]', 'Task ID(s) or prefix(es), comma-separated (e.g., abc,def,ghi) - completes all in-progress tasks if omitted')
   .option('--all', 'Mark all todo tasks as done')
   .option('--project <project>', 'Mark all tasks in project as done')
+  .option('--json', 'Output as JSON')
   .action((ids, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       
       // Bulk operations
       if (options.all || options.project) {
         if (ids) {
-          console.error('Error: Cannot specify task ID with --all or --project');
+          console.error(renderError(new Error('Cannot specify task ID with --all or --project'), format));
           process.exit(1);
         }
         
@@ -388,23 +398,25 @@ program
         
         const tasks = db.listTasks(filters);
         if (tasks.length === 0) {
-          console.log('No tasks found matching criteria.');
+          console.log(renderSuccess('No tasks found matching criteria.', format, { count: 0 }));
           db.close();
           process.exit(0);
         }
         
-        console.log(`About to mark ${tasks.length} task(s) as done:`);
-        for (const task of tasks) {
-          console.log(`  [${task.id}] ${task.text}`);
+        if (format !== 'json') {
+          console.log(`About to mark ${tasks.length} task(s) as done:`);
+          for (const task of tasks) {
+            console.log(`  [${task.id}] ${task.text}`);
+          }
         }
         
-        // Confirmation prompt
+        // Confirmation prompt (auto-confirms in non-TTY / JSON mode)
         confirmAction('Continue?', (confirmed) => {
           if (confirmed) {
             const count = db.bulkComplete(filters, 'human');
-            console.log(`Marked ${count} task(s) as done.`);
+            console.log(renderSuccess(`Marked ${count} task(s) as done.`, format, { count }));
           } else {
-            console.log('Cancelled.');
+            console.log(format === 'json' ? JSON.stringify({ success: false, message: 'Cancelled' }) : 'Cancelled.');
           }
           db.close();
           process.exit(0);
@@ -418,22 +430,24 @@ program
         const tasks = db.listTasks(filters);
         
         if (tasks.length === 0) {
-          console.log('No in-progress tasks to complete.');
+          console.log(renderSuccess('No in-progress tasks to complete.', format, { count: 0 }));
           db.close();
           process.exit(0);
         }
         
-        console.log(`About to mark ${tasks.length} in-progress task(s) as done:`);
-        for (const task of tasks) {
-          console.log(`  [${task.id}] ${task.text}`);
+        if (format !== 'json') {
+          console.log(`About to mark ${tasks.length} in-progress task(s) as done:`);
+          for (const task of tasks) {
+            console.log(`  [${task.id}] ${task.text}`);
+          }
         }
         
         confirmAction('Continue?', (confirmed) => {
           if (confirmed) {
             const count = db.bulkComplete(filters, 'human');
-            console.log(`Marked ${count} task(s) as done.`);
+            console.log(renderSuccess(`Marked ${count} task(s) as done.`, format, { count }));
           } else {
-            console.log('Cancelled.');
+            console.log(format === 'json' ? JSON.stringify({ success: false, message: 'Cancelled' }) : 'Cancelled.');
           }
           db.close();
           process.exit(0);
@@ -443,14 +457,16 @@ program
       
       // Multiple task operation (comma-separated IDs)
       const resolvedIds = resolveIds(db, ids);
+      const completed: string[] = [];
       for (const resolvedId of resolvedIds) {
         db.completeTask(resolvedId, 'human');
-        console.log(`Completed: ${resolvedId}`);
+        completed.push(resolvedId);
       }
+      console.log(renderSuccess(`Completed: ${completed.join(', ')}`, format, { ids: completed, count: completed.length }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -465,7 +481,9 @@ program
   .option('--project <project>', 'Update project (+ prefix optional)')
   .option('--context <context>', 'Update context (@ prefix optional)')
   .option('--due <date>', 'Update due date')
+  .option('--json', 'Output as JSON')
   .action((idOrPrefix, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
@@ -478,11 +496,11 @@ program
       if (options.due !== undefined) updates.dueDate = options.due;
 
       db.updateTask(id, updates, 'human');
-      console.log(`Updated: ${id}`);
+      console.log(renderSuccess(`Updated: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -494,14 +512,16 @@ program
   .argument('[ids]', 'Task ID(s), comma-separated (e.g., abc,def) - optional if using --all or --status')
   .option('--all', 'Archive all non-active tasks')
   .option('--status <status>', 'Archive all tasks with status (e.g., done)')
+  .option('--json', 'Output as JSON')
   .action((ids, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       
       // Bulk operations
       if (options.all || options.status) {
         if (ids) {
-          console.error('Error: Cannot specify task ID with --all or --status');
+          console.error(renderError(new Error('Cannot specify task ID with --all or --status'), format));
           process.exit(1);
         }
         
@@ -514,26 +534,27 @@ program
         
         const tasks = db.listTasks(filters);
         if (tasks.length === 0) {
-          console.log('No tasks found matching criteria.');
+          console.log(renderSuccess('No tasks found matching criteria.', format, { count: 0 }));
           db.close();
           process.exit(0);
         }
         
-        console.log(`About to archive ${tasks.length} task(s):`);
-        for (const task of tasks.slice(0, 10)) {
-          console.log(`  [${task.id}] ${task.text}`);
-        }
-        if (tasks.length > 10) {
-          console.log(`  ... and ${tasks.length - 10} more`);
+        if (format !== 'json') {
+          console.log(`About to archive ${tasks.length} task(s):`);
+          for (const task of tasks.slice(0, 10)) {
+            console.log(`  [${task.id}] ${task.text}`);
+          }
+          if (tasks.length > 10) {
+            console.log(`  ... and ${tasks.length - 10} more`);
+          }
         }
         
-        // Confirmation prompt
         confirmAction('Continue?', (confirmed) => {
           if (confirmed) {
             const count = db.bulkArchive(filters, 'human');
-            console.log(`Archived ${count} task(s).`);
+            console.log(renderSuccess(`Archived ${count} task(s).`, format, { count }));
           } else {
-            console.log('Cancelled.');
+            console.log(format === 'json' ? JSON.stringify({ success: false, message: 'Cancelled' }) : 'Cancelled.');
           }
           db.close();
           process.exit(0);
@@ -543,19 +564,21 @@ program
       
       // Multiple task operation
       if (!ids) {
-        console.error('Error: Task ID required (or use --all/--status)');
+        console.error(renderError(new Error('Task ID required (or use --all/--status)'), format));
         process.exit(1);
       }
       
       const resolvedIds = resolveIds(db, ids);
+      const archived: string[] = [];
       for (const resolvedId of resolvedIds) {
         db.archiveTask(resolvedId, 'human');
-        console.log(`Archived: ${resolvedId}`);
+        archived.push(resolvedId);
       }
+      console.log(renderSuccess(`Archived: ${archived.join(', ')}`, format, { ids: archived, count: archived.length }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -565,16 +588,18 @@ program
   .command('unarchive')
   .description('Unarchive a task')
   .argument('<id>', 'Task ID or prefix')
-  .action((idOrPrefix) => {
+  .option('--json', 'Output as JSON')
+  .action((idOrPrefix, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
       db.unarchiveTask(id, 'human');
-      console.log(`Unarchived: ${id}`);
+      console.log(renderSuccess(`Unarchived: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -584,16 +609,18 @@ program
   .command('confirm')
   .description('Confirm agent-proposed task')
   .argument('<id>', 'Task ID or prefix')
-  .action((idOrPrefix) => {
+  .option('--json', 'Output as JSON')
+  .action((idOrPrefix, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
       db.confirmTask(id, 'human');
-      console.log(`Confirmed: ${id}`);
+      console.log(renderSuccess(`Confirmed: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -604,16 +631,18 @@ program
   .description('Reject agent-proposed task')
   .argument('<id>', 'Task ID or prefix')
   .option('--reason <text>', 'Reason for rejection')
+  .option('--json', 'Output as JSON')
   .action((idOrPrefix, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
       db.rejectTask(id, 'human', options.reason);
-      console.log(`Rejected: ${id}`);
+      console.log(renderSuccess(`Rejected: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -625,7 +654,9 @@ program
   .argument('<id>', 'Task ID or prefix to block')
   .argument('<arg2>', 'Blocker ID or "by"')
   .argument('[blocker]', 'Blocker task ID (if arg2 was "by")')
-  .action((idOrPrefix, arg2, blockerArg) => {
+  .option('--json', 'Output as JSON')
+  .action((idOrPrefix, arg2, blockerArg, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
@@ -644,11 +675,11 @@ program
       
       const blocker = resolveId(db, blockerPrefix);
       db.blockTask(id, blocker, 'human');
-      console.log(`Blocked ${id} by ${blocker}`);
+      console.log(renderSuccess(`Blocked ${id} by ${blocker}`, format, { id, blockerId: blocker }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -658,16 +689,18 @@ program
   .command('unblock')
   .description('Unblock a task')
   .argument('<id>', 'Task ID or prefix')
-  .action((idOrPrefix) => {
+  .option('--json', 'Output as JSON')
+  .action((idOrPrefix, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
       db.unblockTask(id, 'human');
-      console.log(`Unblocked: ${id}`);
+      console.log(renderSuccess(`Unblocked: ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -680,16 +713,11 @@ program
   .option('-l, --level <level>', 'Autonomy level', 'collab')
   .option('-u, --urgency <urgency>', 'Urgency', 'whenever')
   .option('-p, --project <project>', 'Project tag (+ prefix optional)')
+  .option('--json', 'Output as JSON')
   .action((text, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
-
-      // Check proposal limits
-      const proposedCount = db.countProposed();
-      if (proposedCount >= 5) {
-        console.error('Error: Too many proposed tasks (max 5 active)');
-        process.exit(1);
-      }
 
       const id = db.createTask(text, 'agent', {
         autonomy: options.level,
@@ -697,12 +725,12 @@ program
         project: normalizeProject(options.project),
       });
 
-      console.log(`Proposed: ${id} (awaiting confirmation)`);
+      console.log(renderSuccess(`Proposed: ${id} (awaiting confirmation)`, format, { id, status: 'proposed' }));
 
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });
@@ -713,16 +741,18 @@ program
   .description('Add a note to a task')
   .argument('<id>', 'Task ID or prefix')
   .argument('<text>', 'Note text')
-  .action((idOrPrefix, text) => {
+  .option('--json', 'Output as JSON')
+  .action((idOrPrefix, text, options) => {
+    const format: OutputFormat = options.json ? 'json' : 'text';
     try {
       const db = getDb();
       const id = resolveId(db, idOrPrefix);
       db.addNote(id, text, 'human');
-      console.log(`Note added to ${id}`);
+      console.log(renderSuccess(`Note added to ${id}`, format, { id }));
       db.close();
       process.exit(0);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(renderError(error, format));
       process.exit(1);
     }
   });

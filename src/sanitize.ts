@@ -4,7 +4,7 @@
  * Adapted from molt/src/sanitize.ts
  */
 
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 
 // Strip patterns that look like prompt injection attempts
 // Focus on critical patterns only (role hijacking, instruction override, code execution, credential exfil, tool invocations)
@@ -148,13 +148,13 @@ export function validateTaskId(id: string): boolean {
   return /^[a-z0-9]{8}$/.test(id);
 }
 
-// Generate random task ID using crypto.randomBytes for cryptographic strength
+// Generate random task ID using crypto.randomInt for uniform distribution.
+// randomInt uses rejection sampling internally — no modulo bias.
 export function generateTaskId(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = randomBytes(LIMITS.taskId);
   let id = '';
   for (let i = 0; i < LIMITS.taskId; i++) {
-    id += chars[bytes[i] % chars.length];
+    id += chars[randomInt(chars.length)];
   }
   return id;
 }
