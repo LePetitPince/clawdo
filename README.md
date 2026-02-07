@@ -55,15 +55,20 @@ Default: `collab` (safe).
 
 ## Install
 
+**Via npm:**
+
 ```bash
 npm install -g clawdo
 ```
 
-Or via ClawHub:
+**Via [ClawHub](https://clawhub.ai)** (installs the skill into your OpenClaw workspace):
 
 ```bash
-clawhub install clawdo
+npm install -g clawhub    # one-time: install the ClawHub CLI
+clawhub install clawdo    # install the clawdo skill
 ```
+
+Then install the CLI itself: `npm install -g clawdo`. The ClawHub skill gives your agent the documentation; the npm package gives it the binary.
 
 **Requirements:** Node.js ≥ 18, build tools for better-sqlite3:
 - Debian/Ubuntu: `apt install build-essential python3`
