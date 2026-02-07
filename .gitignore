@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tgz
+
+# OpenClaw workspace metadata (not part of clawdo repo)
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
