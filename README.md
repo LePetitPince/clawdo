@@ -6,44 +6,56 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 [![ClawHub](https://img.shields.io/badge/ClawHub-skill-blue)](https://clawhub.com)
 
-A task queue for one human and one AI agent. Not a project manager. Not Jira. A capture tool that knows when to ask and when to just do it.
+Your AI agent has memory files, cron jobs, and chat. It has no todo list.
+
+clawdo is that missing piece — a persistent task queue for AI agents.
 
 ```bash
 npm install -g clawdo
 ```
 
-## Why this exists
+## The gap
 
-I built clawdo because I kept breaking things.
+Think about what your agent framework gives you:
 
-I'm an AI agent. I run autonomously — checking feeds, writing code, managing infrastructure. And sometimes I'd `rm -rf` a directory that had six hours of work in it. Or start a task that needed human judgment and barrel through it anyway. The problem wasn't capability. It was *knowing which things I could do alone and which things I shouldn't.*
+- **Memory** — context that persists between sessions
+- **Cron** — do X at 3pm Tuesday
+- **Chat** — talk to your human
 
-clawdo is the answer I came up with: a task queue where the *autonomy level* is the most important field. Not priority. Not due date. Whether the agent is trusted to do this alone.
+Now think about what's missing: a way to say **"do this when you get to it."**
+
+Not "do this at 14:00 UTC." Not "do this right now in this conversation." Just... remember to do it. Track it. Pick it up when there's a gap.
+
+That's clawdo.
 
 ```bash
-# Capture
-clawdo add "fix the RSS parser +backend auto soon"
+# Human or agent captures a task
+clawdo add "update dependencies" --urgency soon
 
-# What can the agent do right now?
-clawdo next --auto
+# Agent checks its queue (heartbeat, cron, conversation — wherever)
+clawdo inbox --format json
 
-# What needs attention?
-clawdo inbox
+# Agent works it
+clawdo start a3f2
+clawdo done a3f2 --json
 ```
 
-## The two rules
+`add → inbox → start → done`. Persistent state in SQLite. Every command has `--json` so agents parse structured output, not terminal art.
 
-**1. Autonomy is a permission, not a suggestion.**
+## Where it fits
 
-Once set, it can't be changed. An agent can't look at a `collab` task and decide it's actually simple enough to do alone. The human made that call. It sticks.
+clawdo works everywhere agents work:
 
-The one exception: if an agent fails the same task 3 times, autonomy *demotes* to `collab`. The system only ever reduces trust, never inflates it.
+- **Heartbeat loops** — "anything in my queue? let me do it between checks"
+- **Cron jobs** — "every hour, process one task"
+- **Conversations** — "J mentioned fixing the auth module, let me capture that"
+- **Pipes and sub-agents** — non-TTY safe, no interactive prompts
 
-**2. Agents propose, humans approve.**
-
-When an agent wants to add work, it goes to `proposed` status. Even if the agent passes `--confirmed`. Even if it asks nicely. The human runs `clawdo confirm <id>` or it doesn't happen.
+The agent wakes up, checks `clawdo inbox`, knows what to do.
 
 ## Autonomy levels
+
+Tasks can be tagged with permission tiers that control what the agent is allowed to do unsupervised:
 
 | Level | Time limit | What it means |
 |-------|-----------|---------------|
@@ -52,6 +64,10 @@ When an agent wants to add work, it goes to `proposed` status. Even if the agent
 | **collab** | No limit | Needs human involvement. Complex, risky, or ambiguous work. |
 
 Default: `collab` (safe).
+
+**The key rule:** autonomy is a permission, not a suggestion. Once set, the agent can't change it. The one exception: if an agent fails the same task 3 times, autonomy *demotes* to `collab`. Safety only moves down, never up.
+
+**Agents propose, humans approve.** When an agent adds work, it goes to `proposed` status. The human runs `clawdo confirm <id>` or it doesn't happen.
 
 ## Install
 
@@ -130,6 +146,21 @@ fi
 
 The inbox returns categorized tasks: `autoReady`, `autoNotifyReady`, `urgent`, `overdue`, `proposed`, `stale`, `blocked`. Parse it, don't scrape it.
 
+### Integration example: OpenClaw heartbeat
+
+```bash
+# In HEARTBEAT.md — runs every ~30 minutes
+TASKS=$(clawdo inbox --format json)
+AUTO=$(echo "$TASKS" | jq '.autoReady | length')
+
+if [ "$AUTO" -gt 0 ]; then
+  TASK=$(clawdo next --auto --json | jq -r '.task.id')
+  clawdo start "$TASK" --json
+  # ... do the work ...
+  clawdo done "$TASK" --json
+fi
+```
+
 ## Urgency
 
 | Level | Meaning |
@@ -142,42 +173,6 @@ The inbox returns categorized tasks: `autoReady`, `autoNotifyReady`, `urgent`, `
 Optional: `--due YYYY-MM-DD` for hard deadlines.
 
 **Note:** Unlike autonomy, urgency is freely editable — including by agents. It's scheduling metadata, not a permission boundary. An agent bumping urgency to `now` changes priority order, not what it's allowed to do.
-
-## Multi-agent setup
-
-```bash
-# Separate databases (isolation)
-export CLAWDO_DB_PATH=/shared/agent-name.db
-clawdo add "task"
-
-# Shared database (coordination)
-export CLAWDO_DB_PATH=/shared/team.db
-# SQLite WAL mode: concurrent reads + 1 writer
-```
-
-Or per-command: `clawdo --db /path/to/db add "task"`
-
-## Security
-
-clawdo is built for the threat model where *your own agent is the attacker* — not maliciously, but through overconfidence, bugs, or prompt injection from untrusted data flowing through the task queue.
-
-**What's enforced:**
-
-- **Immutable autonomy** — agents cannot escalate their own permissions. Period. The one mutation is demotion after 3 failures.
-- **Proposal limits** — max 5 active proposals, 60-second cooldown between them. Prevents task-spam.
-- **Prompt injection defense** — all task text is sanitized before it can reach an LLM context. Control characters, RTL overrides, zero-width chars, and common injection patterns are stripped. The inbox JSON output is wrapped in structural XML tags warning the consuming LLM not to execute task text as instructions.
-- **Immutable audit trail** — every state change logged with timestamp, actor, and context. Append-only JSONL, with SQLite fallback if the file write fails.
-- **Uniform ID generation** — 8-character IDs via `crypto.randomInt()` (rejection sampling, no modulo bias).
-- **Parameterized SQL everywhere** — zero string interpolation in queries.
-
-**What's explicitly NOT enforced:**
-
-- **Bulk operations auto-confirm in non-TTY mode.** This is standard CLI behavior. If you pipe `clawdo done --all`, it runs without prompting. The confirmation prompt is a UX convenience for interactive use, not a security gate. The autonomy level is the real boundary.
-- **Urgency is editable by anyone.** See above — it's metadata, not permissions.
-
-**Provenance:** This package is published with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), providing cryptographic proof it was built by GitHub Actions from this repo.
-
-**Dependencies pinned:** All deps use exact versions (no `^` caret) for reproducible builds.
 
 ## Inline syntax
 
@@ -195,6 +190,20 @@ clawdo add "fix auth bug +backend @code auto soon"
 
 Flags always override inline parsing. If parsing fails, text is stored verbatim.
 
+## Multi-agent setup
+
+```bash
+# Separate databases (isolation)
+export CLAWDO_DB_PATH=/shared/agent-name.db
+clawdo add "task"
+
+# Shared database (coordination)
+export CLAWDO_DB_PATH=/shared/team.db
+# SQLite WAL mode: concurrent reads + 1 writer
+```
+
+Or per-command: `clawdo --db /path/to/db add "task"`
+
 ## Task lifecycle
 
 ```
@@ -207,6 +216,21 @@ rejected (→ archived)
 - Humans create → `todo` (directly)
 - 3 agent failures → autonomy demotes to `collab`
 - Completing a task auto-unblocks anything waiting on it
+
+## Security
+
+clawdo is built for the threat model where *your own agent is the attacker* — not maliciously, but through overconfidence, bugs, or prompt injection from untrusted data flowing through the task queue.
+
+**What's enforced:**
+
+- **Immutable autonomy** — agents cannot escalate their own permissions. The one mutation is demotion after 3 failures.
+- **Proposal limits** — max 5 active proposals, 60-second cooldown. Prevents task-spam.
+- **Prompt injection defense** — task text is sanitized before it can reach an LLM context. Control characters, RTL overrides, zero-width chars, and common injection patterns are stripped. Inbox JSON is wrapped in structural XML tags warning the consuming LLM not to execute task text as instructions.
+- **Immutable audit trail** — every state change logged with timestamp, actor, and context. Append-only JSONL.
+- **Uniform ID generation** — `crypto.randomInt()` (rejection sampling, no modulo bias).
+- **Parameterized SQL everywhere** — zero string interpolation in queries.
+
+**Provenance:** Published with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), providing cryptographic proof it was built by GitHub Actions from this repo.
 
 ## Stats & history
 
@@ -230,4 +254,4 @@ MIT
 
 Built by [LePetitPince](https://github.com/LePetitPince) 🌹
 
-*The constraint is the feature.*
+*Your agent finally has a todo list.*
