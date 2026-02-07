@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-02-07
+
+### Fixed
+- ClawHub publish workflow: added `clawhub login --token` step before publish (env var alone doesn't authenticate the CLI).
+- ClawHub publish workflow: replaced inline changelog with release URL to avoid shell escaping issues with backticks in release notes.
+
 ## [1.1.0] - 2026-02-07
 
 ### Added
