@@ -30,7 +30,7 @@ Already configured in GitHub Actions secrets:
 
 1. **Update version:**
    ```bash
-   npm version 1.0.1  # or minor, major
+   npm version patch  # or minor, major
    ```
 
 2. **Push with tags:**
@@ -40,8 +40,8 @@ Already configured in GitHub Actions secrets:
 
 3. **Create GitHub release:**
    ```bash
-   gh release create v1.0.1 \
-     --title "v1.0.1" \
+   gh release create v1.1.0 \
+     --title "v1.1.0" \
      --notes "Bug fixes and improvements"
    ```
 
@@ -67,7 +67,7 @@ npm publish
 clawhub publish ./skill \
   --slug clawdo \
   --name "clawdo - Task Queue" \
-  --version 1.0.0 \
+  --version 1.1.0 \
   --changelog "Release notes"
 ```
 
@@ -88,7 +88,7 @@ This ensures code and docs stay in sync.
 ## Versioning Strategy
 
 - **npm version** (package.json): Source of truth
-- **ClawHub version**: Extracted from git tag (e.g., `v1.0.1` → `1.0.1`)
+- **ClawHub version**: Extracted from git tag (e.g., `v1.1.0` → `1.1.0`)
 - **Keep in sync**: Use `npm version` to bump, create release with same tag
 
 ## Checklist
@@ -118,5 +118,5 @@ Before creating a release:
 
 **Version mismatch:**
 - Git tag must match package.json version
-- GitHub release uses tag (e.g., `v1.0.1`)
+- GitHub release uses tag (e.g., `v1.1.0`)
 - Workflow extracts version by removing `v` prefix

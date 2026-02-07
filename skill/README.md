@@ -13,7 +13,7 @@ This folder is automatically published to ClawHub when a GitHub release is creat
 
 ### Automatic (via GitHub Actions)
 
-1. Create a GitHub release (e.g., `v1.0.0`)
+1. Create a GitHub release (e.g., `v1.1.0`)
 2. GitHub Actions automatically:
    - Publishes npm package
    - Publishes this `skill/` folder to ClawHub
@@ -26,7 +26,7 @@ clawhub login
 clawhub publish ./skill \
   --slug clawdo \
   --name "clawdo - Task Queue" \
-  --version 1.0.0 \
+  --version 1.1.0 \
   --changelog "Release notes"
 ```
 

@@ -126,9 +126,9 @@ git branch -d feat/my-feature
 ### Versioning & Releases
 
 **Use semantic versioning:**
-- **PATCH** (1.0.1): Bug fixes, docs
-- **MINOR** (1.1.0): New features (backward compatible)
-- **MAJOR** (2.0.0): Breaking changes
+- **PATCH** (x.y.Z): Bug fixes, docs
+- **MINOR** (x.Y.0): New features (backward compatible)
+- **MAJOR** (X.0.0): Breaking changes
 
 **Release process:**
 
