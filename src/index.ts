@@ -138,7 +138,7 @@ function formatTimeAgo(isoTimestamp: string): string {
 program
   .name('clawdo')
   .description('Personal task queue with autonomous execution — claw + to-do')
-  .version('1.1.2')
+  .version('1.1.3')
   .option('--db <path>', 'Database path (default: ~/.config/clawdo/clawdo.db, or $CLAWDO_DB_PATH)')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts();
