@@ -3,21 +3,29 @@ name: clawdo
 version: 1.1.2
 author: LePetitPince <lepetitpince@proton.me>
 homepage: https://github.com/LePetitPince/clawdo
-description: Agent-first task queue with autonomous execution levels. Agents propose tasks, humans approve, agents execute. Security-first design with prompt injection defense, immutable autonomy levels, and multi-agent database isolation.
+description: "The missing todo list for AI agents. Your agent has memory, cron jobs, and chat — but no way to say 'do this when you get to it.' clawdo is a persistent task queue that works in heartbeats, cron, pipes, and conversations. add → inbox → start → done."
 tags:
+  - todo
+  - task-queue
   - task-management
-  - autonomous
-  - agent-first
-  - security
+  - agent-tools
+  - productivity
+  - heartbeat
   - workflow
-  - collaboration
+  - autonomous
 keywords:
+  - todo list
   - task queue
+  - todo
+  - tasks
+  - agent tasks
+  - persistent tasks
+  - heartbeat tasks
+  - agent todo
+  - task management
+  - agent workflow
   - autonomous execution
   - agent collaboration
-  - todo
-  - security
-  - multi-agent
 categories:
   - productivity
   - agent-tools
@@ -42,24 +50,19 @@ metadata:
   }
 ---
 
-# 🦞 clawdo - Agent-First Task Queue
+# 🦞 clawdo — The missing todo list for AI agents
 
-**Task management CLI designed for autonomous AI agents.**
+Your agent has memory files, cron jobs, and chat. It has no todo list.
 
-Agents propose work, humans approve, agents execute. Built-in autonomy levels, security guardrails, and multi-agent support.
+No way to say **"do this when you get to it."** Not "do this at 14:00 UTC." Not "do this right now in this conversation." Just... remember to do it. Track it. Pick it up when there's a gap.
 
-## Why clawdo?
+That's clawdo.
 
-🤖 **Agent-First Design** — Agents propose tasks, check their inbox, execute autonomously  
-🔒 **Security Guardrails** — Prompt injection defense, immutable autonomy, rate limiting  
-⚡ **Autonomy Levels** — `auto` (10min), `auto-notify` (30min), `collab` (unlimited)  
-🗄️ **Multi-Agent Ready** — SQLite WAL mode for concurrent access  
-📊 **Structured Output** — Every command has `--json` mode
-
-## Installation
+## Install
 
 ```bash
-npm install -g clawdo
+clawhub install clawdo    # installs skill + docs into your workspace
+npm install -g clawdo     # install the CLI binary
 ```
 
 **Requirements:** Node.js ≥18
@@ -67,213 +70,129 @@ npm install -g clawdo
 ## Quick Start
 
 ```bash
-# Agent workflow
-clawdo inbox --format json              # Check what needs attention
-clawdo propose "Task idea" --level auto # Propose work
-clawdo next --auto --json               # Get next approved task
-clawdo start <id>                       # Start working
-clawdo done <id>                        # Mark complete
+# Capture a task
+clawdo add "update dependencies" --urgency soon
 
-# Human workflow
-clawdo add "Fix bug +backend auto soon" # Add task (inline metadata)
-clawdo list --status proposed           # Review agent proposals
-clawdo confirm <id>                     # Approve proposal
-clawdo list --json                      # View all tasks
-```
-
-## Core Concepts
-
-### Autonomy Levels: The Safety Contract
-
-| Level | Time Limit | Use Case | Human Involvement |
-|-------|------------|----------|-------------------|
-| **auto** | 10 min | Small fixes, tests, docs | Silent execution |
-| **auto-notify** | 30 min | Multi-step work, research | Notify on completion |
-| **collab** | Unlimited | Complex features, risky ops | Real-time collaboration |
-
-**Key constraint:** Autonomy levels are **immutable** after creation. Agents cannot escalate permissions.
-
-### Task Lifecycle
-
-```
-proposed → todo → in_progress → done
-   ↓
-rejected
-```
-
-- **Agents propose** → `proposed` status (max 5 active, 60s cooldown)
-- **Humans approve** → `confirm` → `todo` status
-- **Agents execute** → `start` → `in_progress` → `done`
-
-### Inbox: Agent Command Center
-
-```bash
+# Agent checks its queue (heartbeat, cron, conversation — wherever)
 clawdo inbox --format json
+
+# Agent works it
+clawdo start a3f2
+clawdo done a3f2 --json
 ```
 
-Returns structured data with:
-- `autoReady` — Tasks approved and ready for autonomous execution
-- `autoNotifyReady` — Auto-notify tasks ready to execute
-- `proposed` — Tasks awaiting human approval
-- `urgent` — Tasks marked `urgency=now`
-- `overdue` — Tasks past their due date
-- `blocked` — Tasks blocked by unfinished dependencies
-- `stale` — Tasks in-progress for >24 hours
+`add → inbox → start → done`. Persistent state in SQLite. Every command has `--json` so agents parse structured output, not terminal art.
 
-**Agent pattern:** Check inbox → execute auto tasks → propose new work.
+## Where it fits
 
-## Agent Usage Patterns
+clawdo works everywhere agents work:
 
-### Basic Agent Loop
+- **Heartbeat loops** — "anything in my queue? let me do it between checks"
+- **Cron jobs** — "every hour, process one task"
+- **Conversations** — "J mentioned fixing the auth module, let me capture that"
+- **Pipes and sub-agents** — non-TTY safe, no interactive prompts
+
+### Heartbeat integration example
 
 ```bash
-# Get next auto task
-TASK=$(clawdo next --auto --json | jq -r '.task.id // empty')
-if [ -n "$TASK" ]; then
-  clawdo start "$TASK"
-  # ... do work ...
-  clawdo done "$TASK"
+# In HEARTBEAT.md — runs every ~30 minutes
+TASKS=$(clawdo inbox --format json)
+AUTO=$(echo "$TASKS" | jq '.autoReady | length')
+
+if [ "$AUTO" -gt 0 ]; then
+  TASK=$(clawdo next --auto --json | jq -r '.task.id')
+  clawdo start "$TASK" --json
+  # ... do the work ...
+  clawdo done "$TASK" --json
 fi
 ```
 
-### Smart Proposals
+## Autonomy levels
+
+Tasks can be tagged with permission tiers that control what the agent is allowed to do unsupervised:
+
+| Level | Time Limit | What it means |
+|-------|------------|---------------|
+| **auto** | 10 min | Agent does it silently. Fix a typo, run tests. |
+| **auto-notify** | 30 min | Agent does it, tells the human when done. |
+| **collab** | Unlimited | Human required. Complex, risky, or ambiguous. |
+
+Default: `collab` (safe).
+
+**Key rule:** Autonomy is a permission, not a suggestion. Once set, agents can't change it. If an agent fails 3 times, autonomy *demotes* to `collab`. Safety only moves down, never up.
+
+**Agents propose, humans approve.** Agent tasks always start as `proposed`. The human runs `clawdo confirm <id>` or it doesn't happen.
+
+## Usage
+
+### For humans
 
 ```bash
-# Propose with appropriate autonomy level
-clawdo propose "Update API docs" --level auto --urgency soon --project api
+# Add tasks — inline metadata parsing
+clawdo add "deploy new API +backend auto-notify now"
+#           └── text ──────┘ └project┘ └─level──┘ └urg┘
 
-# Link to parent task
-clawdo note current-task "Proposed follow-up: docs update"
+# View
+clawdo list                       # active tasks
+clawdo list --status proposed     # agent suggestions
+clawdo next                       # highest priority
+
+# Review agent proposals
+clawdo confirm <id>               # approve
+clawdo reject <id>                # reject
+
+# Work
+clawdo start <id>
+clawdo done <id>
+clawdo done abc,def,ghi           # complete several
 ```
 
-### Bulk Operations
+### For agents
 
 ```bash
-# Complete multiple tasks
-clawdo done abc,def,ghi
-
-# Get all tasks by project
-clawdo list --json | jq -r '.tasks[] | select(.project=="api") | .id'
-```
-
-## Multi-Agent Setup
-
-### Option 1: Separate Databases (Isolation)
-
-```bash
-# Agent 1
-export CLAWDO_DB_PATH=/shared/agent1.db
+# Check inbox (structured)
 clawdo inbox --format json
 
-# Agent 2
-export CLAWDO_DB_PATH=/shared/agent2.db
-clawdo inbox --format json
+# Propose work
+clawdo propose "add input validation" --level auto --json
+
+# Execute
+TASK=$(clawdo next --auto --json | jq -r '.task.id // empty')
+if [ -n "$TASK" ]; then
+  clawdo start "$TASK" --json
+  # ... do the work ...
+  clawdo done "$TASK" --json
+fi
 ```
 
-### Option 2: Shared Database (Collaboration)
+The inbox returns: `autoReady`, `autoNotifyReady`, `urgent`, `overdue`, `proposed`, `stale`, `blocked`.
+
+## Inline syntax
 
 ```bash
-# All agents use same database
-export CLAWDO_DB_PATH=/shared/team.db
-
-# Filter by project/context
-clawdo list --json | jq '.tasks[] | select(.project=="backend")'
+clawdo add "fix auth bug +backend @code auto soon"
 ```
 
-SQLite WAL mode supports concurrent reads + 1 writer.
+- `+word` → project
+- `@word` → context
+- `auto` / `auto-notify` / `collab` → autonomy level
+- `now` / `soon` / `whenever` / `someday` → urgency
+- `due:YYYY-MM-DD` → due date
 
-## Security Features
+## Security
 
-🛡️ **Prompt Injection Defense** — All user input sanitized to prevent LLM manipulation  
-🔒 **Immutable Autonomy** — Agents cannot escalate their own permissions  
-⏱️ **Rate Limiting** — Max 5 proposals, 60-second cooldown  
-📝 **Audit Logs** — Append-only cryptographic audit trail  
-🎲 **Secure IDs** — Cryptographically random, not sequential
-
-## Command Reference
-
-**For detailed command documentation, use:**
-
-```bash
-clawdo --help              # Full CLI overview with examples
-clawdo <command> --help    # Command-specific options
-```
-
-**Key commands:**
-
-- `clawdo add` — Add task (inline metadata: `+project @context auto soon`)
-- `clawdo list` — List tasks (`--status`, `--level`, `--json` filters)
-- `clawdo next` — Get next task (`--auto` flag for agents)
-- `clawdo propose` — Agent proposes task (max 5 active proposals)
-- `clawdo confirm/reject` — Human approves/rejects proposals
-- `clawdo start/done` — Task lifecycle (supports bulk: `done abc,def,ghi`)
-- `clawdo inbox` — Agent's command center (`--format json|markdown`)
-- `clawdo show` — Full task details (`--json` for programmatic use)
-- `clawdo stats` — Task statistics (`--json` output)
-- `clawdo history` — Task history log (`--json` output)
-
-**All read commands support `--json` for agents.**
-
-## Real-World Scenarios
-
-### Scenario 1: Autonomous Maintenance
-
-Agent checks inbox during heartbeat, executes approved auto tasks silently, proposes follow-up work.
-
-### Scenario 2: Research with Oversight
-
-Agent takes auto-notify tasks, conducts research (30min max), notifies human on completion with findings.
-
-### Scenario 3: Multi-Agent Team
-
-Multiple agents share a database, filter by project tags, coordinate via blocking dependencies.
-
-## Best Practices
-
-✅ **Use appropriate autonomy levels** — Don't mark risky work as `auto`  
-✅ **Check inbox regularly** — Agents should poll `inbox --format json`  
-✅ **Propose granular tasks** — Better to propose 3 small tasks than 1 large  
-✅ **Use blocking dependencies** — `clawdo block <id> <blocker-id>`  
-✅ **Parse JSON output** — Don't scrape text, use `--json` flags  
-✅ **Respect rate limits** — Max 5 active proposals prevents spam
-
-## Examples
-
-**Human adds task with inline metadata:**
-
-```bash
-clawdo add "Fix login bug +backend @coding auto soon"
-#           └─text─────┘ └project┘ └context┘ └lv┘ └urg┘
-```
-
-**Agent proposes and executes:**
-
-```bash
-# Propose
-clawdo propose "Run test suite" --level auto --urgency now
-
-# Human confirms
-clawdo confirm abc123
-
-# Agent executes
-clawdo start abc123
-npm test
-clawdo done abc123
-```
-
-**Agent filters inbox:**
-
-```bash
-clawdo inbox --format json | jq '.autoReady[] | select(.urgency=="now")'
-```
+- **Immutable autonomy** — agents cannot escalate permissions
+- **Proposal limits** — max 5 active, 60s cooldown
+- **Prompt injection defense** — input sanitization, parameterized SQL
+- **Audit trail** — append-only log of every state change
+- **Secure IDs** — `crypto.randomInt()`, no modulo bias
 
 ## Resources
 
 - **GitHub:** https://github.com/LePetitPince/clawdo
 - **npm:** https://www.npmjs.com/package/clawdo
-- **Full Documentation:** Run `clawdo --help`
-- **Issues:** https://github.com/LePetitPince/clawdo/issues
+- **Full docs:** `clawdo --help`
 
 ## License
 
-MIT — See LICENSE file in the repository.
+MIT

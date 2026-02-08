@@ -11,7 +11,8 @@ Your AI agent has memory files, cron jobs, and chat. It has no todo list.
 clawdo is that missing piece — a persistent task queue for AI agents.
 
 ```bash
-npm install -g clawdo
+clawhub install clawdo    # if you're on OpenClaw
+npm install -g clawdo     # standalone
 ```
 
 ## The gap
@@ -71,20 +72,18 @@ Default: `collab` (safe).
 
 ## Install
 
-**Via npm:**
+**Via [ClawHub](https://clawhub.ai)** (recommended for OpenClaw agents):
+
+```bash
+clawhub install clawdo    # installs skill + docs into your workspace
+npm install -g clawdo     # install the CLI binary
+```
+
+**Via npm only:**
 
 ```bash
 npm install -g clawdo
 ```
-
-**Via [ClawHub](https://clawhub.ai)** (installs the skill into your OpenClaw workspace):
-
-```bash
-npm install -g clawhub    # one-time: install the ClawHub CLI
-clawhub install clawdo    # install the clawdo skill
-```
-
-Then install the CLI itself: `npm install -g clawdo`. The ClawHub skill gives your agent the documentation; the npm package gives it the binary.
 
 **Requirements:** Node.js ≥ 18, build tools for better-sqlite3:
 - Debian/Ubuntu: `apt install build-essential python3`
