@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.3] - 2026-02-08
+
+### Changed
+- ClawHub install moved above npm in README and SKILL.md
+- SKILL.md description reframed: "The missing todo list for AI agents"
+- Added todo-related keywords/tags for ClawHub search discoverability
+
+---
+
 ## [1.1.2] - 2026-02-07
 
 ### Changed
