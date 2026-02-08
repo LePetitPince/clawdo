@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.2] - 2026-02-07
+
+### Changed
+- README reframed around the core problem: agent frameworks give you memory, cron, and chat — but no todo list. Autonomy levels documented as a feature, not the headline.
+- Added "The gap," "Where it fits," and heartbeat integration example sections.
+- Repo description updated to match new framing.
+
 ## [1.1.1] - 2026-02-07
 
 ### Fixed
