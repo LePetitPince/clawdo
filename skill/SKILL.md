@@ -1,6 +1,6 @@
 ---
 name: clawdo
-version: 1.1.3
+version: 1.1.4
 author: LePetitPince <lepetitpince@proton.me>
 homepage: https://github.com/LePetitPince/clawdo
 description: "Todo list and task management for AI agents. Add, track, and complete tasks with autonomy levels — agents propose work, humans approve. Works in heartbeats, cron, and conversations. Persistent SQLite CLI with structured JSON output."
