@@ -3,7 +3,7 @@ name: clawdo
 version: 1.1.3
 author: LePetitPince <lepetitpince@proton.me>
 homepage: https://github.com/LePetitPince/clawdo
-description: "The missing todo list for AI agents. Your agent has memory, cron jobs, and chat — but no way to say 'do this when you get to it.' clawdo is a persistent task queue that works in heartbeats, cron, pipes, and conversations. add → inbox → start → done."
+description: "Todo list and task management for AI agents. Add, track, and complete tasks with autonomy levels — agents propose work, humans approve. Works in heartbeats, cron, and conversations. Persistent SQLite CLI with structured JSON output."
 tags:
   - todo
   - task-queue
