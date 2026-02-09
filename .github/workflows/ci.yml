@@ -86,7 +86,7 @@ jobs:
         run: |
           clawhub publish ./skill \
             --slug clawdo \
-            --name "clawdo - Task Queue with Autonomous Execution" \
+            --name "clawdo - Todo List for Agents" \
             --version "${{ steps.version.outputs.version }}" \
             --changelog "See https://github.com/LePetitPince/clawdo/releases/tag/v${{ steps.version.outputs.version }}" \
             --tags latest \
